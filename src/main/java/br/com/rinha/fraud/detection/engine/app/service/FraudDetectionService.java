@@ -6,14 +6,10 @@ import br.com.rinha.fraud.detection.engine.app.dto.FraudScoreResponse;
 import br.com.rinha.fraud.detection.engine.domain.entity.RiskReferenceEntity;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalField;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -42,9 +38,9 @@ public class FraudDetectionService {
     currentVector.add(limitValue(request.transaction().installments().divide(ApiConstants.MAX_INSTALLMENTS, 4, RoundingMode.HALF_UP)));
 
     //2
-//    currentVector.add(limitValue(request.transaction().amount()
-//        .divide(request.customer().avg_amount(), 4, RoundingMode.HALF_UP)
-//        .divide(ApiConstants.AMOUNT_VS_AVG_RATIO, 4, RoundingMode.HALF_UP)));
+    currentVector.add(limitValue(request.transaction().amount()
+        .divide(request.customer().avg_amount(), 4, RoundingMode.HALF_UP)
+        .divide(ApiConstants.AMOUNT_VS_AVG_RATIO, 4, RoundingMode.HALF_UP)));
 
     //3
     currentVector.add(limitValue(new BigDecimal(request.transaction().requested_at().getHour()).divide(new BigDecimal("23"), 4, RoundingMode.HALF_UP)));
@@ -94,6 +90,10 @@ public class FraudDetectionService {
   private BigDecimal limitValue(BigDecimal value) {
     if (value.compareTo(BigDecimal.ONE) > 0) {
       return new BigDecimal("1");
+    }
+
+    if (value.compareTo(BigDecimal.ZERO) < 0) {
+      return new BigDecimal("0");
     }
 
     return value;
