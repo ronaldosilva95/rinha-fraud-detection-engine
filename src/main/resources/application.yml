@@ -1,0 +1,13 @@
+spring:
+  application.name: fraud-detection-engine
+  main:
+    lazy-initialization: true
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  tomcat:
+    threads:
+      max: 20
+      min-spare: 5
