@@ -1,0 +1,37 @@
+# Alternative Dockerfile for GraalVM Native Image Build
+# To use: docker build -f Dockerfile.native -t rinha-fraud-detection-engine:latest-native .
+
+FROM container-registry.oracle.com/graalvm/native-image:25.0.2-ol9 AS builder
+
+WORKDIR /build
+
+COPY . /build
+
+# Build GraalVM Native Image
+# The executable will be placed in: /build/target/fraud-detection-engine
+RUN ./mvnw clean -Pnative native:compile --no-transfer-progress
+
+
+# Runtime Stage
+FROM container-registry.oracle.com/os/oraclelinux:9-slim
+
+RUN microdnf install -y curl && microdnf clean all
+
+WORKDIR /app
+
+# Copy the native executable from builder (the file itself, not as a directory)
+COPY --from=builder /build/target/fraud-detection-engine ./app
+
+# Verify the file was copied correctly
+#RUN ls -la /app && file /app/app
+
+# Ensure executable permission
+RUN chmod +x /app/app
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8080/ready || exit 1
+
+ENTRYPOINT ["/app/app"]
+
