@@ -1,14 +1,13 @@
 package br.com.rinha.fraud.detection.engine.app.service;
 
+import static br.com.rinha.fraud.detection.engine.app.constants.ApiConstants.DEFAULT_VALUE_ONE;
+import static br.com.rinha.fraud.detection.engine.app.constants.ApiConstants.DEFAULT_VALUE_ZERO;
+import static br.com.rinha.fraud.detection.engine.app.constants.ApiConstants.VALUE_TO_ROUND_OPERATION;
+
 import br.com.rinha.fraud.detection.engine.app.constants.ApiConstants;
 import br.com.rinha.fraud.detection.engine.app.dto.FraudScoreRequest;
 import br.com.rinha.fraud.detection.engine.app.dto.FraudScoreResponse;
-import br.com.rinha.fraud.detection.engine.domain.entity.RiskReferenceEntity;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -16,84 +15,57 @@ import org.springframework.stereotype.Service;
 @Service
 public class FraudDetectionService {
 
-  private final Map<String, BigDecimal> MCC_RISK_SCORE;
-  private final List<RiskReferenceEntity> RISK_REFERENCE_LIST;
+  private final Map<String, Double> MCC_RISK_SCORE;
   private final VectorSearchService vectorSearchService;
 
-  public FraudDetectionService(@Qualifier("mccRiskScore") Map<String, BigDecimal> mccRiskScore,
-      @Qualifier("riskRereference") List<RiskReferenceEntity> riskReferenceList, VectorSearchService vectorSearchService) {
+  public FraudDetectionService(@Qualifier("mccRiskScore") Map<String, Double> mccRiskScore,
+      VectorSearchService vectorSearchService) {
     this.MCC_RISK_SCORE = mccRiskScore;
-    this.RISK_REFERENCE_LIST = riskReferenceList;
     this.vectorSearchService = vectorSearchService;
   }
 
   public FraudScoreResponse calculateRiskScore(FraudScoreRequest request) {
+    double[] currentVector = new double[14];
 
-    List<BigDecimal> currentVector = new ArrayList<>();
+    currentVector[0] = limitValue(Math.round((request.transaction().amount() / ApiConstants.MAX_AMOUNT) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
+    currentVector[1] = limitValue(Math.round((request.transaction().installments() / ApiConstants.MAX_INSTALLMENTS) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
+    currentVector[2] = limitValue(Math.round(((request.transaction().amount() / request.customer().avg_amount()) / ApiConstants.AMOUNT_VS_AVG_RATIO) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
+    currentVector[3] = limitValue(Math.round((request.transaction().requested_at().getHour() / 23.0) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
+    currentVector[4] = limitValue(Math.round(((request.transaction().requested_at().getDayOfWeek().getValue()-1) / 6.0) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
 
-    //0
-    currentVector.add(limitValue(request.transaction().amount().divide(ApiConstants.MAX_AMOUNT, 4, RoundingMode.HALF_UP)));
-
-    //1
-    currentVector.add(limitValue(request.transaction().installments().divide(ApiConstants.MAX_INSTALLMENTS, 4, RoundingMode.HALF_UP)));
-
-    //2
-    currentVector.add(limitValue(request.transaction().amount()
-        .divide(request.customer().avg_amount(), 4, RoundingMode.HALF_UP)
-        .divide(ApiConstants.AMOUNT_VS_AVG_RATIO, 4, RoundingMode.HALF_UP)));
-
-    //3
-    currentVector.add(limitValue(new BigDecimal(request.transaction().requested_at().getHour()).divide(new BigDecimal("23"), 4, RoundingMode.HALF_UP)));
-
-    //4
-    currentVector.add(limitValue(new BigDecimal(request.transaction().requested_at().getDayOfWeek().getValue() -1 ).divide(new BigDecimal("6"), 4, RoundingMode.HALF_UP)));
 
     if (request.last_transaction() != null) {
-      currentVector.add(limitValue(new BigDecimal(ChronoUnit.MINUTES.between(request.transaction().requested_at(), request.last_transaction().timestamp())) .divide(ApiConstants.MAX_MINUTES, 4, RoundingMode.HALF_UP))); //5
-      currentVector.add(limitValue(request.last_transaction().km_from_current().divide(ApiConstants.MAX_KM))); //6
+      currentVector[5] = limitValue(Math.round((ChronoUnit.MINUTES.between(request.last_transaction().timestamp(), request.transaction().requested_at()) / ApiConstants.MAX_MINUTES) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION); //5
+      currentVector[6] = limitValue(Math.round((request.last_transaction().km_from_current() / ApiConstants.MAX_KM) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION); //6
     } else {
-      currentVector.add(ApiConstants.DEFAULT_VALUE_WITHOUT_LAST_TRANSACTION); //5
-      currentVector.add(ApiConstants.DEFAULT_VALUE_WITHOUT_LAST_TRANSACTION); //6
+      currentVector[5] = ApiConstants.DEFAULT_VALUE_WITHOUT_LAST_TRANSACTION; //5
+      currentVector[6] = ApiConstants.DEFAULT_VALUE_WITHOUT_LAST_TRANSACTION; //6
     }
 
-    //7
-    currentVector.add(limitValue(request.terminal().km_from_home().divide(ApiConstants.MAX_KM, 4, RoundingMode.HALF_UP)));
+    currentVector[7] = limitValue(Math.round((request.terminal().km_from_home() / ApiConstants.MAX_KM) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
+    currentVector[8] = limitValue(Math.round((request.customer().tx_count_24h() / ApiConstants.MAX_TX_COUNT_24H) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
+    currentVector[9] = request.terminal().is_online() ? DEFAULT_VALUE_ONE : DEFAULT_VALUE_ZERO;
+    currentVector[10] = request.terminal().card_present() ? DEFAULT_VALUE_ONE : DEFAULT_VALUE_ZERO;
+    currentVector[11] = request.customer().known_merchants() != null && request.customer().known_merchants().contains(request.merchant().id()) ? DEFAULT_VALUE_ZERO : DEFAULT_VALUE_ONE;
+    currentVector[12] = limitValue(getMccRisk(request.merchant().mcc()));
+    currentVector[13] = limitValue(Math.round((request.merchant().avg_amount() / ApiConstants.MAX_MERCHANT_AVG_AMOUNT) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
 
-    //8
-    currentVector.add(limitValue(new BigDecimal(request.customer().tx_count_24h()).divide(new BigDecimal(ApiConstants.MAX_TX_COUNT_24H), 4, RoundingMode.HALF_UP)));
-
-    //9
-    currentVector.add(request.terminal().is_online() ? BigDecimal.ONE : BigDecimal.ZERO);
-
-    //10
-    currentVector.add(request.terminal().card_present() ? BigDecimal.ONE : BigDecimal.ZERO);
-
-    //11
-    currentVector.add(request.customer().know_merchant() != null && request.customer().know_merchant().contains(request.merchant().id()) ? BigDecimal.ZERO : BigDecimal.ONE);
-
-    //12
-    currentVector.add(limitValue(getMccRisk(request.merchant().mcc())));
-
-    //13
-    currentVector.add(limitValue(request.merchant().avg_amount().divide(ApiConstants.MAX_MERCHANT_AVG_AMOUNT, 4, RoundingMode.HALF_UP)));
-
-    var neighbors = vectorSearchService.findNearestNeighbors(currentVector, RISK_REFERENCE_LIST, 5);
-    var score = neighbors.stream().filter(a -> a.data().label().equals("fraud")).count() / 5.0;
+    var score = vectorSearchService.getScoreByNearestNeighbors(currentVector);
 
     return new FraudScoreResponse(score < 0.6, score);
   }
 
-  private BigDecimal getMccRisk(String mcc) {
-    return MCC_RISK_SCORE.getOrDefault(mcc, new BigDecimal("0.5"));
+  private double getMccRisk(String mcc) {
+    return MCC_RISK_SCORE.getOrDefault(mcc, 0.5);
   }
 
-  private BigDecimal limitValue(BigDecimal value) {
-    if (value.compareTo(BigDecimal.ONE) > 0) {
-      return new BigDecimal("1");
+  private double limitValue(double value) {
+    if (value > 1) {
+      return 1;
     }
 
-    if (value.compareTo(BigDecimal.ZERO) < 0) {
-      return new BigDecimal("0");
+    if (value < 0) {
+      return 0;
     }
 
     return value;

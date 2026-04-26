@@ -1,6 +1,5 @@
 package br.com.rinha.fraud.detection.engine.app.dto;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -8,23 +7,23 @@ public record FraudScoreRequest(String id, TransactionRequest transaction, Custo
                                 MerchantRequest merchant, TerminalRequest terminal,
                                 LastTransactionRequest last_transaction) {
 
-  public record TransactionRequest(BigDecimal amount, BigDecimal installments, LocalDateTime requested_at) {
+  public record TransactionRequest(double amount, double installments, LocalDateTime requested_at) {
 
   }
 
-  public record CustomerRequest(BigDecimal avg_amount, int tx_count_24h, List<String> know_merchant) {
+  public record CustomerRequest(double avg_amount, double tx_count_24h, List<String> known_merchants) {
 
   }
 
-  public record MerchantRequest(String id, String mcc, BigDecimal avg_amount) {
+  public record MerchantRequest(String id, String mcc, double avg_amount) {
 
   }
 
-  public record TerminalRequest(boolean is_online, boolean card_present, BigDecimal km_from_home) {
+  public record TerminalRequest(boolean is_online, boolean card_present, double km_from_home) {
 
   }
 
-  public record LastTransactionRequest(LocalDateTime timestamp, BigDecimal km_from_current) {
+  public record LastTransactionRequest(LocalDateTime timestamp, double km_from_current) {
 
   }
 
