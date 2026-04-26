@@ -2,10 +2,12 @@ package br.com.rinha.fraud.detection.engine.app.service;
 
 import static br.com.rinha.fraud.detection.engine.app.constants.ApiConstants.DEFAULT_VALUE_ONE;
 import static br.com.rinha.fraud.detection.engine.app.constants.ApiConstants.DEFAULT_VALUE_ZERO;
+import static br.com.rinha.fraud.detection.engine.app.constants.ApiConstants.QUERY_BUFFER;
 import static br.com.rinha.fraud.detection.engine.app.constants.ApiConstants.VALUE_TO_ROUND_OPERATION;
 
 import br.com.rinha.fraud.detection.engine.app.constants.ApiConstants;
 import br.com.rinha.fraud.detection.engine.app.dto.FraudScoreRequest;
+import br.com.rinha.fraud.detection.engine.app.dto.FraudScoreRequest.MerchantRequest;
 import br.com.rinha.fraud.detection.engine.app.dto.FraudScoreResponse;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -25,7 +27,7 @@ public class FraudDetectionService {
   }
 
   public FraudScoreResponse calculateRiskScore(FraudScoreRequest request) {
-    double[] currentVector = new double[14];
+    double[] currentVector = QUERY_BUFFER.get();
 
     currentVector[0] = limitValue(Math.round((request.transaction().amount() / ApiConstants.MAX_AMOUNT) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
     currentVector[1] = limitValue(Math.round((request.transaction().installments() / ApiConstants.MAX_INSTALLMENTS) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
@@ -46,13 +48,28 @@ public class FraudDetectionService {
     currentVector[8] = limitValue(Math.round((request.customer().tx_count_24h() / ApiConstants.MAX_TX_COUNT_24H) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
     currentVector[9] = request.terminal().is_online() ? DEFAULT_VALUE_ONE : DEFAULT_VALUE_ZERO;
     currentVector[10] = request.terminal().card_present() ? DEFAULT_VALUE_ONE : DEFAULT_VALUE_ZERO;
-    currentVector[11] = request.customer().known_merchants() != null && request.customer().known_merchants().contains(request.merchant().id()) ? DEFAULT_VALUE_ZERO : DEFAULT_VALUE_ONE;
+    currentVector[11] = getMerchant(request.customer().known_merchants(), request.merchant().id());
+
     currentVector[12] = limitValue(getMccRisk(request.merchant().mcc()));
     currentVector[13] = limitValue(Math.round((request.merchant().avg_amount() / ApiConstants.MAX_MERCHANT_AVG_AMOUNT) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
 
     var score = vectorSearchService.getScoreByNearestNeighbors(currentVector);
 
     return new FraudScoreResponse(score < 0.6, score);
+  }
+
+  private double getMerchant(String[] merchants, String merchantId) {
+    if (merchants == null) {
+      return DEFAULT_VALUE_ZERO;
+    }
+
+    for (int i = 0; i < merchants.length; i++) {
+      if (merchants[i].equals(merchantId)) {
+        return DEFAULT_VALUE_ONE;
+      }
+    }
+
+    return DEFAULT_VALUE_ZERO;
   }
 
   private double getMccRisk(String mcc) {

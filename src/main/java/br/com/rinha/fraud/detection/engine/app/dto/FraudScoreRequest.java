@@ -11,7 +11,7 @@ public record FraudScoreRequest(String id, TransactionRequest transaction, Custo
 
   }
 
-  public record CustomerRequest(double avg_amount, double tx_count_24h, List<String> known_merchants) {
+  public record CustomerRequest(double avg_amount, double tx_count_24h, String[] known_merchants) {
 
   }
 

@@ -26,23 +26,29 @@ public class InitializeConfiguration {
   @Bean("riskRereference")
   public RiskDataEntity initializeScoreReference() throws IOException {
     try (var inputStream = getClass().getResourceAsStream("/references.json")) {
-//    try (var inputStream = getClass().getResourceAsStream("/example-reference.json")) {
       var list = new ObjectMapper().readValue(inputStream,
           new TypeReference<List<RiskReferenceEntity>>() {
           });
 
-
       var size = list.size();
-      double[][] vectors = new double[size][14];
+      var dim = 14;
+
+      double[] vectors = new double[size * dim];
       String[] labels = new String[size];
 
-      for(int i = 0 ; i < size; i++) {
+      int index = 0;
+      for (int i = 0; i < size; i++) {
         var item = list.get(i);
-        vectors[i] = item.vector();
+        var currentVector = item.vector();
+
+        for (int j = 0; j < dim; j++) {
+          vectors[index++] = currentVector[j];
+        }
+
         labels[i] = item.label();
       }
 
-      return new RiskDataEntity(vectors, labels);
+      return new RiskDataEntity(vectors, labels, dim);
     }
   }
 }

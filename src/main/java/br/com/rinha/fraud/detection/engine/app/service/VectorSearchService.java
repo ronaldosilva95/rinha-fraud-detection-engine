@@ -39,8 +39,32 @@ public class VectorSearchService {
       bestIndexes[i] = -1;
     }
 
-    for (int i = 0; i < RISK_REFERENCE_LIST.getVectors().length; i++) {
-      var distance = calculateEuclideanDistance(queryVector, RISK_REFERENCE_LIST.getVectors()[i]);
+    var vectors = RISK_REFERENCE_LIST.getVectors();
+    var labels = RISK_REFERENCE_LIST.getLabels();
+    var dim = RISK_REFERENCE_LIST.getDim();
+
+    int size = vectors.length;
+    int total = size / dim;
+
+    for (int i = 0; i < total; i++) {
+      int base = i * dim;
+
+      // 🔥 distância inline (sem chamada de método)
+      double distance =
+          sq(vectors[base] - queryVector[0]) +
+              sq(vectors[base + 1] - queryVector[1]) +
+              sq(vectors[base + 2] - queryVector[2]) +
+              sq(vectors[base + 3] - queryVector[3]) +
+              sq(vectors[base + 4] - queryVector[4]) +
+              sq(vectors[base + 5] - queryVector[5]) +
+              sq(vectors[base + 6] - queryVector[6]) +
+              sq(vectors[base + 7] - queryVector[7]) +
+              sq(vectors[base + 8] - queryVector[8]) +
+              sq(vectors[base + 9] - queryVector[9]) +
+              sq(vectors[base + 10] - queryVector[10]) +
+              sq(vectors[base + 11] - queryVector[11]) +
+              sq(vectors[base + 12] - queryVector[12]) +
+              sq(vectors[base + 13] - queryVector[13]);
 
       // encontra o pior dos melhores
       int worstIdx = 0;
@@ -59,12 +83,16 @@ public class VectorSearchService {
 
     int fraudCount = 0;
     for (var idx : bestIndexes) {
-      if (RISK_REFERENCE_LIST.getLabels()[idx].equals("fraud")) {
+      if (labels[idx].equals("fraud")) {
         fraudCount++;
       }
     }
 
     return fraudCount / 5.0;
+  }
+
+  private static double sq(double x) {
+    return x * x;
   }
 
 }

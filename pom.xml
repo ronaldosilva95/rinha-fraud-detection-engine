@@ -58,8 +58,8 @@
             <configuration>
               <buildArgs combine.children="append">
                 <arg>-Ob</arg>
-                <arg>-H:IncludeResources=.*\.json$</arg>
                 <arg>--gc=G1</arg>
+                <arg>-H:IncludeResources=.*\.json$</arg>
               </buildArgs>
             </configuration>
           </plugin>
