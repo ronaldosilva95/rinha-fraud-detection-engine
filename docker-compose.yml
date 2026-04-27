@@ -1,6 +1,6 @@
 x-service-templates:
   rinha-fraud-detection-engine: &rinha-fraud-detection-engine
-    image: ronaldosilva95/rinha-fraud-detection-engine:v0.0.3-native
+    image: ronaldosilva95/rinha-fraud-detection-engine:v0.0.4-native
     hostname: fraud-detection-api
     networks:
       - backend-network
@@ -18,8 +18,8 @@ x-service-templates:
         window: 5s
       resources:
         limits:
-          cpus: "0.43"
-          memory: "165MB"
+          cpus: "0.35"
+          memory: "160MB"
 services:
   nginx:
     image: nginx:1.25-alpine
@@ -43,8 +43,8 @@ services:
         window: 5s
       resources:
         limits:
-          cpus: "0.14"
-          memory: "20MB"
+          cpus: "0.30"
+          memory: "30MB"
   api-1:
     <<: *rinha-fraud-detection-engine
     hostname: api01
