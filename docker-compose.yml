@@ -19,7 +19,7 @@ x-service-templates:
       resources:
         limits:
           cpus: "0.43"
-          memory: "170MB"
+          memory: "165MB"
 services:
   nginx:
     image: nginx:1.25-alpine
@@ -44,7 +44,7 @@ services:
       resources:
         limits:
           cpus: "0.14"
-          memory: "10MB"
+          memory: "20MB"
   api-1:
     <<: *rinha-fraud-detection-engine
     hostname: api01
