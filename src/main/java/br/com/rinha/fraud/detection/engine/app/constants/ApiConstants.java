@@ -15,6 +15,10 @@ public class ApiConstants {
   public static final double DEFAULT_VALUE_WITHOUT_LAST_TRANSACTION = -1.0;
   public static final double VALUE_TO_ROUND_OPERATION = 10000.0;
 
+  public static final int SIZE_BEST_INDEX = 5;
+
   public static final ThreadLocal<double[]> QUERY_BUFFER =
+      ThreadLocal.withInitial(() -> new double[14]);
+  public static final ThreadLocal<double[]> QUERY_BUFFER_DESERIALIZER =
       ThreadLocal.withInitial(() -> new double[14]);
 }

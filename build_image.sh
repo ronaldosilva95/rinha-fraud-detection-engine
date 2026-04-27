@@ -7,7 +7,8 @@ BUILD_TYPE="${1:-jar}"
 if [ "$BUILD_TYPE" = "native" ] || [ "$BUILD_TYPE" = "n" ]; then
     echo "🔨 Building GraalVM Native Image..."
     echo "=================================================="
-    docker build -f Dockerfile.native --platform linux/amd64,linux/arm64 -t rinha-fraud-detection-engine:latest-native .
+    #docker build -f Dockerfile.native --platform linux/amd64,linux/arm64 -t rinha-fraud-detection-engine:latest-native .
+    docker build -f Dockerfile.native -t rinha-fraud-detection-engine:latest-native .
 
     echo ""
     echo "✅ Native image built successfully!"

@@ -1,5 +1,6 @@
 package br.com.rinha.fraud.detection.engine.app.service;
 
+import br.com.rinha.fraud.detection.engine.app.constants.ApiConstants;
 import br.com.rinha.fraud.detection.engine.domain.entity.RiskDataEntity;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -13,23 +14,8 @@ public class VectorSearchService {
     this.RISK_REFERENCE_LIST = riskRereference;
   }
 
-  /**
-   * Calcula a distância euclidiana entre dois vetores
-   */
-  public double calculateEuclideanDistance(double[] vector1, double[] vector2) {
-    double sumOfSquares = 0.0;
-    for (int i = 0; i < vector1.length; i++) {
-      double diff = vector1[i] - vector2[i];
-      sumOfSquares += diff * diff;
-    }
-    return sumOfSquares;
-
-    // √ da soma dos quadrados
-//    return new BigDecimal(Math.sqrt(sumOfSquares.doubleValue()), new MathContext(4));
-  }
-
   public double getScoreByNearestNeighbors(double[] queryVector) {
-    int sizeBestIndex = 5;
+    int sizeBestIndex = ApiConstants.SIZE_BEST_INDEX;
     double[] bestDistance = new double[sizeBestIndex];
     int[] bestIndexes = new int[sizeBestIndex];
 
@@ -50,21 +36,39 @@ public class VectorSearchService {
       int base = i * dim;
 
       // 🔥 distância inline (sem chamada de método)
-      double distance =
-          sq(vectors[base] - queryVector[0]) +
-              sq(vectors[base + 1] - queryVector[1]) +
-              sq(vectors[base + 2] - queryVector[2]) +
-              sq(vectors[base + 3] - queryVector[3]) +
-              sq(vectors[base + 4] - queryVector[4]) +
-              sq(vectors[base + 5] - queryVector[5]) +
-              sq(vectors[base + 6] - queryVector[6]) +
-              sq(vectors[base + 7] - queryVector[7]) +
-              sq(vectors[base + 8] - queryVector[8]) +
-              sq(vectors[base + 9] - queryVector[9]) +
-              sq(vectors[base + 10] - queryVector[10]) +
-              sq(vectors[base + 11] - queryVector[11]) +
-              sq(vectors[base + 12] - queryVector[12]) +
-              sq(vectors[base + 13] - queryVector[13]);
+      double distance = 0.0;
+
+      double d0 = vectors[base] - queryVector[0];
+      distance += d0 * d0;
+
+      double d1 = vectors[base + 1] - queryVector[1];
+      distance += d1 * d1;
+
+      double d2 = vectors[base + 2] - queryVector[2];
+      distance += d2 * d2;
+      double d3 = vectors[base + 3] - queryVector[3];
+      distance += d3 * d3;
+      double d4 = vectors[base + 4] - queryVector[4];
+      distance += d4 * d4;
+      double d5 = vectors[base + 5] - queryVector[5];
+      distance += d5 * d5;
+      double d6 = vectors[base + 6] - queryVector[6];
+      distance += d6 * d6;
+      double d7 = vectors[base + 7] - queryVector[7];
+      distance += d7 * d7;
+      double d8 = vectors[base + 8] - queryVector[8];
+      distance += d8 * d8;
+      double d9 = vectors[base + 9] - queryVector[9];
+      distance += d9 * d9;
+      double d10 = vectors[base + 10] - queryVector[10];
+      distance += d10 * d10;
+      double d11 = vectors[base + 11] - queryVector[11];
+      distance += d11 * d11;
+      double d12 = vectors[base + 12] - queryVector[12];
+      distance += d12 * d12;
+      double d13 = vectors[base + 13] - queryVector[13];
+      distance += d13 * d13;
+
 
       // encontra o pior dos melhores
       int worstIdx = 0;
@@ -89,10 +93,6 @@ public class VectorSearchService {
     }
 
     return fraudCount / 5.0;
-  }
-
-  private static double sq(double x) {
-    return x * x;
   }
 
 }
