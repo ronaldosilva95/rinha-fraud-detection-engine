@@ -1,17 +1,9 @@
 x-service-templates:
   rinha-fraud-detection-engine: &rinha-fraud-detection-engine
-    image: ronaldosilva95/rinha-fraud-detection-engine:v0.0.2-native
+    image: ronaldosilva95/rinha-fraud-detection-engine:v0.0.3-native
     hostname: fraud-detection-api
     networks:
       - backend-network
-    environment:
-      - JAVA_OPTS=
-        -Xms80m
-        -Xmx80m
-        -XX:+UseG1GC
-        -XX:MaxMetaspaceSize=40m
-        -XX:ReservedCodeCacheSize=16m
-        -XX:+UseContainerSupport
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/ready"]
       interval: 30s
@@ -27,7 +19,7 @@ x-service-templates:
       resources:
         limits:
           cpus: "0.43"
-          memory: "165MB"
+          memory: "170MB"
 services:
   nginx:
     image: nginx:1.25-alpine
@@ -52,7 +44,7 @@ services:
       resources:
         limits:
           cpus: "0.14"
-          memory: "20MB"
+          memory: "10MB"
   api-1:
     <<: *rinha-fraud-detection-engine
     hostname: api01
