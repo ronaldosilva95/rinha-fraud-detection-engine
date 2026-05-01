@@ -29,7 +29,7 @@
     <resources>
       <resource>
         <directory>src/main/resources</directory>
-        <filtering>true</filtering>
+        <filtering>false</filtering>
         <includes>
           <include>**/*</include>
         </includes>
@@ -59,7 +59,7 @@
               <buildArgs combine.children="append">
                 <arg>-Ob</arg>
                 <arg>--gc=G1</arg>
-                <arg>-H:IncludeResources=.*\.json$</arg>
+                <arg>-H:IncludeResources=.*\.(json|bin)$</arg>
               </buildArgs>
             </configuration>
           </plugin>

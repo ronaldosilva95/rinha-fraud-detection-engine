@@ -7,8 +7,9 @@ server:
   port: 8080
   servlet:
     context-path: /
-  server:
-    tomcat:
-      threads:
-        max: 10-20
-        min-spare: 5
+  tomcat:
+    threads:
+      max: 3
+      min-spare: 1
+    max-connections: 24
+    accept-count: 32

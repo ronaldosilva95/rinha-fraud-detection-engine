@@ -8,6 +8,7 @@ import static br.com.rinha.fraud.detection.engine.app.constants.ApiConstants.QUE
 import br.com.rinha.fraud.detection.engine.app.dto.FraudScoreRequest;
 import br.com.rinha.fraud.detection.engine.app.service.FraudDetectionService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -159,7 +160,6 @@ public class FraudScoreController {
         }
       }
     }
-
     var score = service.calculateRiskScore(vector, requestedAt);
     return ResponseEntity.ok("{\"approved\":"+ (score < 0.6) + ",\"fraud_score\":" +score+ "}");
   }
