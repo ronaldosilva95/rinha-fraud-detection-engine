@@ -57,10 +57,13 @@ public class VectorSearchService {
 
     int worstIdx = 0;
     long worstDistance = Long.MAX_VALUE;
-    var hourStart = Math.max(0, hourBucket - 1);
-    var hourEnd = Math.min(HOURS - 1, hourBucket + 1);
+    var hourStart = Math.max(0, hourBucket - 3);
+    var hourEnd = Math.min(HOURS - 1, hourBucket + 3);
     var txStart = Math.max(0, txBucket - 1);
     var txEnd = Math.min(TX_BUCKETS - 1, txBucket + 1);
+    // Days mantém ±1 para cobrir fraudes de dias próximos (sábado/domingo)
+    var dayStart = Math.max(0, dayBucket - 1);
+    var dayEnd = Math.min(DAYS - 1, dayBucket + 1);
 
     for (var currentHour = hourStart; currentHour <= hourEnd; currentHour++) {
       for (var currentTx = txStart; currentTx <= txEnd; currentTx++) {
