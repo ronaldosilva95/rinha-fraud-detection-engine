@@ -4,6 +4,11 @@ x-service-templates:
     hostname: fraud-detection-api
     networks:
       - backend-network
+    environment:
+      - SERVER_TOMCAT_THREADS_MAX=90
+      - SERVER_TOMCAT_THREADS_MIN-SPARE=70
+      - SERVER_TOMCAT_MAX-CONNECTION=99999
+      - SERVER_TOMCAT_ACCEPT-COUNT=99999
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/ready"]
       interval: 30s
