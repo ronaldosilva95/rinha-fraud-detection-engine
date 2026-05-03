@@ -1,6 +1,6 @@
 x-service-templates:
   rinha-fraud-detection-engine: &rinha-fraud-detection-engine
-    image: ronaldosilva95/rinha-fraud-detection-engine:v0.0.13-native
+    image: ronaldosilva95/rinha-fraud-detection-engine:v0.0.14-native
     hostname: fraud-detection-api
     networks:
       - backend-network
