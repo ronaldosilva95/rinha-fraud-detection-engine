@@ -1,12 +1,12 @@
 x-service-templates:
   rinha-fraud-detection-engine: &rinha-fraud-detection-engine
-    image: ronaldosilva95/rinha-fraud-detection-engine:v0.0.14-native
+    image: ronaldosilva95/rinha-fraud-detection-engine:v0.1.0-native
     hostname: fraud-detection-api
+    volumes:
+      - ./vp_tree_index.bin:/etc/references/vp_tree_index.bin
+      - ./references_new.bin:/etc/references/references_new.bin
     networks:
       - backend-network
-    environment:
-      - SERVER_TOMCAT_THREADS_MAX=90
-      - SERVER_TOMCAT_THREADS_MIN-SPARE=70
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/ready"]
       interval: 30s
