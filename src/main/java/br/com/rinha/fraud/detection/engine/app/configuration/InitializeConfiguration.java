@@ -5,32 +5,38 @@ import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.Map;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 public class InitializeConfiguration {
 
   private static final int DIM = 14;
-  private static final int HOURS = 24;
-  private static final int DAYS = 7;
-  private static final int TX_BUCKETS = 4;
+  private static final int DIM_WITH_LABEL = 15;
+  public static final int HOURS = 24;
+  public static final int DAYS = 7;
+  public static final int TX_BUCKETS = 20;
   private static final int BUCKET_COUNT = 8 * HOURS * DAYS * TX_BUCKETS;
   private static final int REFERENCES_MAGIC = 0x52524546;
   private static final int REFERENCES_VERSION = 1;
   private static final String REFERENCES_BIN = "/references.bin";
 
-  private final ObjectMapper mapper = new ObjectMapper();
-
   @Bean("mccRiskScore")
-  public Map<String, Double> initializieMccRiskScore() throws IOException {
-    try (var inputStream = openResource("/mcc_risk.json")) {
-      return mapper.readValue(inputStream, new TypeReference<Map<String, Double>>() {
-      });
-    }
+  public Map<String, Double> initializieMccRiskScore() {
+    Map<String, Double> map = new HashMap<>();
+    map.put("5411", 0.15);
+    map.put("5812", 0.30);
+    map.put("5912", 0.20);
+    map.put("5944", 0.45);
+    map.put("7801", 0.80);
+    map.put("7802", 0.75);
+    map.put("7995", 0.85);
+    map.put("4511", 0.35);
+    map.put("5311", 0.25);
+    map.put("5999", 0.50);
+    return map;
   }
 
   @Bean("riskRereference")
@@ -42,16 +48,38 @@ public class InitializeConfiguration {
     }
 
     var size = bucketStarts[BUCKET_COUNT];
-    var vectors = new short[size * DIM];
-    var labels = new byte[size];
-    loadReferences(vectors, labels, bucketStarts.clone());
+    var vectors = new short[size * DIM_WITH_LABEL];
+    loadReferences(vectors, bucketStarts.clone());
 
-    return new RiskDataEntity(vectors, labels, DIM, bucketStarts);
+    return new RiskDataEntity(vectors, DIM_WITH_LABEL, bucketStarts);
+  }
+
+  @Bean
+  public RiskDataEntity warmup(RiskDataEntity riskRereference) {
+    // Warmup the application by accessing the risk reference data
+    var vectors = riskRereference.getVectors();
+    var dim = riskRereference.getDim();
+    var bucketStarts = riskRereference.getBucketStarts();
+
+    // Access some elements to ensure they are loaded into memory
+    for (int i = 0; i < Math.min(10, bucketStarts.length - 1); i++) {
+      int start = bucketStarts[i];
+      int end = bucketStarts[i + 1];
+      for (int j = start; j < Math.min(start + 10, end); j++) {
+        int vectorIndex = j * dim;
+        // Access the first few dimensions of the vector
+        for (int k = 0; k < Math.min(5, dim); k++) {
+          short value = vectors[vectorIndex + k];
+        }
+      }
+    }
+    return riskRereference;
   }
 
   private int[] countBuckets() throws IOException {
     var counts = new int[BUCKET_COUNT];
-    try (var inputStream = new DataInputStream(new BufferedInputStream(openResource(REFERENCES_BIN)))) {
+    try (var inputStream = new DataInputStream(
+        new BufferedInputStream(openResource(REFERENCES_BIN)))) {
       var size = readHeader(inputStream);
       var vector = new short[DIM];
       for (var i = 0; i < size; i++) {
@@ -65,22 +93,27 @@ public class InitializeConfiguration {
     return counts;
   }
 
-  private void loadReferences(short[] vectors, byte[] labels, int[] bucketPositions) throws IOException {
-    try (var inputStream = new DataInputStream(new BufferedInputStream(openResource(REFERENCES_BIN)))) {
+  private void loadReferences(short[] vectors, int[] bucketPositions) throws IOException {
+    try (var inputStream = new DataInputStream(
+        new BufferedInputStream(openResource(REFERENCES_BIN)))) {
       var size = readHeader(inputStream);
-      var vector = new short[DIM];
+      var vector = new short[DIM_WITH_LABEL];
       for (var i = 0; i < size; i++) {
-        for (var j = 0; j < DIM; j++) {
-          vector[j] = inputStream.readShort();
+        for (var j = 0; j < DIM_WITH_LABEL; j++) {
+          if (j == 14) {
+            var label = inputStream.readByte();
+            vector[j] = label;
+          } else {
+            vector[j] = inputStream.readShort();
+          }
         }
-        var label = inputStream.readByte();
+
         var bucket = bucket(vector[9], vector[10], vector[11], vector[3], vector[4], vector[8]);
         var position = bucketPositions[bucket]++;
-        var vectorIndex = position * DIM;
-        for (var j = 0; j < DIM; j++) {
+        var vectorIndex = position * DIM_WITH_LABEL;
+        for (var j = 0; j < DIM_WITH_LABEL; j++) {
           vectors[vectorIndex++] = vector[j];
         }
-        labels[position] = label;
       }
     }
   }
@@ -104,7 +137,8 @@ public class InitializeConfiguration {
     return inputStream.readInt();
   }
 
-  private int bucket(short online, short cardPresent, short knownMerchant, short hourValue, short dayValue,
+  private int bucket(short online, short cardPresent, short knownMerchant, short hourValue,
+      short dayValue,
       short txCountValue) {
     var binaryBucket = 0;
     if (online > 5_000) {

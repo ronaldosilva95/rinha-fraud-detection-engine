@@ -1,14 +1,10 @@
 package br.com.rinha.fraud.detection.engine.app.controller;
 
-import static br.com.rinha.fraud.detection.engine.app.constants.ApiConstants.DEFAULT_VALUE_ONE;
-import static br.com.rinha.fraud.detection.engine.app.constants.ApiConstants.DEFAULT_VALUE_ZERO;
-import static br.com.rinha.fraud.detection.engine.app.constants.ApiConstants.QUERY_BUFFER;
 import static br.com.rinha.fraud.detection.engine.app.constants.ApiConstants.QUERY_BUFFER_DESERIALIZER;
 
 import br.com.rinha.fraud.detection.engine.app.dto.FraudScoreRequest;
 import br.com.rinha.fraud.detection.engine.app.service.FraudDetectionService;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +44,7 @@ public class FraudScoreController {
 
   @PostMapping
   public ResponseEntity<String> parseToVector(HttpServletRequest request) throws Exception {
-    double[] vector = QUERY_BUFFER_DESERIALIZER.get();
+    short[] vector = QUERY_BUFFER_DESERIALIZER.get();;
     vector[12] = -1;
     List<String> merchants = new ArrayList<>();
 
@@ -56,7 +52,6 @@ public class FraudScoreController {
 
     long requestedAt = 0;
     long lastTimestamp = 0;
-    int merchantId = 0;
 
     String currentField = null;
     String currentParent = null;
@@ -84,18 +79,17 @@ public class FraudScoreController {
           token == JsonToken.VALUE_NUMBER_FLOAT || token == JsonToken.VALUE_TRUE ||
           token == JsonToken.VALUE_FALSE || token == JsonToken.START_ARRAY || token == JsonToken.END_ARRAY;
 
-      if (!isValue) {
-        continue;
-      }
-      // 🔥 transaction
+      if (!isValue) continue;
+
+      // 🔥 transaction - ESCALAR DIRETO
       if ("transaction".equals(currentParent)) {
         switch (currentField) {
-          case "amount" -> vector[0] = parser.getDoubleValue();
-          case "installments" -> vector[1] = parser.getDoubleValue();
+          case "amount" -> vector[0] = scale(parser.getDoubleValue());
+          case "installments" -> vector[1] = scale(parser.getDoubleValue());
           case "requested_at" -> {
             String ts = parser.getText();
             requestedAt = Instant.parse(ts).toEpochMilli();
-            vector[2] = requestedAt;
+            vector[2] = (short) (requestedAt / 1_000_000); // scale timestamp
           }
         }
       }
@@ -103,16 +97,15 @@ public class FraudScoreController {
       // 🔥 customer
       else if ("customer".equals(currentParent)) {
         switch (currentField) {
-          case "avg_amount" -> vector[3] = parser.getDoubleValue();
-          case "tx_count_24h" -> vector[4] = parser.getDoubleValue();
+          case "avg_amount" -> vector[3] = scale(parser.getDoubleValue());
+          case "tx_count_24h" -> vector[4] = scale(parser.getDoubleValue());
 
           case "known_merchants" -> {
             if (token == JsonToken.START_ARRAY) {
-              merchantId = 0;
               while (parser.nextToken() != JsonToken.END_ARRAY) {
                 merchants.add(parser.getText());
               }
-              vector[5] = merchantId;
+              vector[5] = 0;
             }
           }
         }
@@ -122,29 +115,30 @@ public class FraudScoreController {
       else if ("merchant".equals(currentParent)) {
         switch (currentField) {
           case "id" -> {
-            double knowMerchant = DEFAULT_VALUE_ONE;
+            short knowMerchant = 10_000; // DEFAULT_VALUE_ONE escalado
             String merchantValueId = parser.getString();
-            for (int i = 0; i < merchants.size(); i++) {
-              if (merchantValueId.equals(merchants.get(i))) {
-                knowMerchant = DEFAULT_VALUE_ZERO;
+            for (String merchant : merchants) {
+              if (merchantValueId.equals(merchant)) {
+                knowMerchant = 0; // DEFAULT_VALUE_ZERO escalado
                 break;
               }
             }
             vector[6] = knowMerchant;
           }
           case "mcc" -> {
-            vector[7] = MCC_RISK_SCORE.getOrDefault(parser.getString(), 0.5);
+            double mccRisk = MCC_RISK_SCORE.getOrDefault(parser.getString(), 0.5);
+            vector[7] = scale(mccRisk);
           }
-          case "avg_amount" -> vector[8] = parser.getDoubleValue();
+          case "avg_amount" -> vector[8] = scale(parser.getDoubleValue());
         }
       }
 
       // 🔥 terminal
       else if ("terminal".equals(currentParent)) {
         switch (currentField) {
-          case "is_online" -> vector[9] = parser.getBooleanValue() ? DEFAULT_VALUE_ONE : DEFAULT_VALUE_ZERO;
-          case "card_present" -> vector[10] = parser.getBooleanValue() ? DEFAULT_VALUE_ONE : DEFAULT_VALUE_ZERO;
-          case "km_from_home" -> vector[11] = parser.getDoubleValue();
+          case "is_online" -> vector[9] = parser.getBooleanValue() ? (short) 10_000 : (short) 0;
+          case "card_present" -> vector[10] = parser.getBooleanValue() ? (short) 10_000 : (short) 0;
+          case "km_from_home" -> vector[11] = scale(parser.getDoubleValue());
         }
       }
 
@@ -154,14 +148,19 @@ public class FraudScoreController {
           case "timestamp" -> {
             String ts = parser.getText();
             lastTimestamp = Instant.parse(ts).toEpochMilli();
-            vector[12] = lastTimestamp;
+            vector[12] = (short) (lastTimestamp / 1_000_000); // scale timestamp
           }
-          case "km_from_current" -> vector[13] = parser.getDoubleValue();
+          case "km_from_current" -> vector[13] = scale(parser.getDoubleValue());
         }
       }
     }
+
     var score = service.calculateRiskScore(vector, requestedAt);
     return ResponseEntity.ok("{\"approved\":"+ (score < 0.6) + ",\"fraud_score\":" +score+ "}");
+  }
+
+  private short scale(double value) {
+    return (short) Math.round(value * 10_000);
   }
 
 }

@@ -19,6 +19,6 @@ public class ApiConstants {
 
   public static final ThreadLocal<double[]> QUERY_BUFFER =
       ThreadLocal.withInitial(() -> new double[14]);
-  public static final ThreadLocal<double[]> QUERY_BUFFER_DESERIALIZER =
-      ThreadLocal.withInitial(() -> new double[14]);
+  public static final ThreadLocal<short[]> QUERY_BUFFER_DESERIALIZER =
+      ThreadLocal.withInitial(() -> new short[14]);
 }

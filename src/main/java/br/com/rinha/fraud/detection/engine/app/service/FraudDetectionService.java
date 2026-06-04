@@ -50,49 +50,53 @@ public class FraudDetectionService {
     currentVector[10] = request.terminal().card_present() ? DEFAULT_VALUE_ONE : DEFAULT_VALUE_ZERO;
     currentVector[11] = getMerchant(request.customer().known_merchants(), request.merchant().id());
 
-    currentVector[12] = limitValue(getMccRisk(request.merchant().mcc()));
+    currentVector[12] = limitValue(MCC_RISK_SCORE.getOrDefault(request.merchant().mcc(), 0.5));
     currentVector[13] = limitValue(Math.round((request.merchant().avg_amount() / ApiConstants.MAX_MERCHANT_AVG_AMOUNT) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
 
     var score = vectorSearchService.getScoreByNearestNeighbors(currentVector);
     return score;
   }
 
-  /**
-   * Método otimizado para quando os valores já foram parseados diretamente do JSON
-   * Evita deserialização completa para ganho de performance
-   * Assume que o vetor já foi preenchido com os valores parseados
-   */
-  public double calculateRiskScore(final double[] request, long requestedAt) {
-    double[] currentVector = QUERY_BUFFER.get();
+  /** * Método otimizado para quando os valores já foram parseados e escalados diretamente para short no JSON * Evita deserialização e conversões intermediárias para ganho máximo de performance * Assume que o vetor já foi preenchido com valores escalados (short) */
+  public double calculateRiskScore(final short[] request, long requestedAt) {
+    short[] currentVector = new short[14];
 
     var transactionAmount = request[0];
 
     var dateRequestedAt = Instant.ofEpochMilli(requestedAt).atZone(ZoneOffset.UTC);
 
-    currentVector[0] = limitValue(Math.round((transactionAmount / ApiConstants.MAX_AMOUNT) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
-    currentVector[1] = limitValue(Math.round((request[1] / ApiConstants.MAX_INSTALLMENTS) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
-    currentVector[2] = limitValue(Math.round(((transactionAmount / request[3]) / ApiConstants.AMOUNT_VS_AVG_RATIO) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
-    currentVector[3] = limitValue(Math.round((dateRequestedAt.getHour() / 23.0) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
-    currentVector[4] = limitValue(Math.round(((dateRequestedAt.getDayOfWeek().getValue()-1) / 6.0) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
+    // Os valores já estão escalados em short, apenas aplicar limitações
+    currentVector[0] = limitValueShort(transactionAmount);
+    currentVector[1] = limitValueShort(request[1]);
+
+//    currentVector[2] = limitValueShort((short) Math.round(((transactionAmount / (double) request[3]) / ApiConstants.AMOUNT_VS_AVG_RATIO) * VALUE_TO_ROUND_OPERATION));
+    double amountNormalized = transactionAmount / VALUE_TO_ROUND_OPERATION;
+    double avgAmountNormalized = request[3] / VALUE_TO_ROUND_OPERATION;
+    double ratio = (amountNormalized / avgAmountNormalized) / ApiConstants.AMOUNT_VS_AVG_RATIO;
+    currentVector[2] = limitValueShort((short) Math.round(ratio * VALUE_TO_ROUND_OPERATION));
+
+
+    currentVector[3] = limitValueShort((short) Math.round((dateRequestedAt.getHour() / 23.0) * VALUE_TO_ROUND_OPERATION));
+    currentVector[4] = limitValueShort((short) Math.round(((dateRequestedAt.getDayOfWeek().getValue()-1) / 6.0) * VALUE_TO_ROUND_OPERATION));
 
     var lastTransaction = request[12];
     if (lastTransaction > 0) {
-      var date = Instant.ofEpochMilli((long) lastTransaction);
-      currentVector[5] = limitValue(Math.round((ChronoUnit.MINUTES.between(date, dateRequestedAt) / ApiConstants.MAX_MINUTES) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION); //5
-      currentVector[6] = limitValue(Math.round((request[13] / ApiConstants.MAX_KM) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION); //6
+      var date = Instant.ofEpochMilli((long) lastTransaction * 1_000_000); // reverter scale
+      currentVector[5] = limitValueShort((short) Math.round((ChronoUnit.MINUTES.between(date, dateRequestedAt) / ApiConstants.MAX_MINUTES) * VALUE_TO_ROUND_OPERATION));
+      currentVector[6] = limitValueShort(request[13]);
     } else {
-      currentVector[5] = ApiConstants.DEFAULT_VALUE_WITHOUT_LAST_TRANSACTION; //5
-      currentVector[6] = ApiConstants.DEFAULT_VALUE_WITHOUT_LAST_TRANSACTION; //6
+      currentVector[5] = (short) (ApiConstants.DEFAULT_VALUE_WITHOUT_LAST_TRANSACTION * VALUE_TO_ROUND_OPERATION);
+      currentVector[6] = (short) (ApiConstants.DEFAULT_VALUE_WITHOUT_LAST_TRANSACTION * VALUE_TO_ROUND_OPERATION);
     }
 
-    currentVector[7] = limitValue(Math.round((request[11] / ApiConstants.MAX_KM) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
-    currentVector[8] = limitValue(Math.round((request[4] / ApiConstants.MAX_TX_COUNT_24H) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
+    currentVector[7] = limitValueShort(request[11]);
+    currentVector[8] = limitValueShort(request[4]);
     currentVector[9] = request[9];
     currentVector[10] = request[10];
     currentVector[11] = request[6];
 
-    currentVector[12] = limitValue(request[7]);
-    currentVector[13] = limitValue(Math.round((request[8] / ApiConstants.MAX_MERCHANT_AVG_AMOUNT) * VALUE_TO_ROUND_OPERATION) / VALUE_TO_ROUND_OPERATION);
+    currentVector[12] = limitValueShort(request[7]);
+    currentVector[13] = limitValueShort(request[8]);
 
     var score = vectorSearchService.getScoreByNearestNeighbors(currentVector);
     return score;
@@ -112,8 +116,19 @@ public class FraudDetectionService {
     return DEFAULT_VALUE_ONE;
   }
 
-  private double getMccRisk(String mcc) {
-    return MCC_RISK_SCORE.getOrDefault(mcc, 0.5);
+  private short limitValueShort(short value) {
+    final short MAX_SCALED = (short) (1.0 * VALUE_TO_ROUND_OPERATION); // 10_000
+    final short MIN_SCALED = 0;
+
+    if (value > MAX_SCALED) {
+      return MAX_SCALED;
+    }
+
+    if (value < MIN_SCALED) {
+      return MIN_SCALED;
+    }
+
+    return value;
   }
 
   private double limitValue(double value) {
